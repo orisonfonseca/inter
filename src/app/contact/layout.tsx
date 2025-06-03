@@ -1,9 +1,12 @@
 'use client';
 
-import StoreLocator from '../components/StoreLocator';
 import Link from 'next/link';
 
-export default function Home() {
+export default function ContactLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-h-screen">
       <nav className="bg-white shadow-sm">
@@ -16,13 +19,13 @@ export default function Home() {
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <Link 
                   href="/"
-                  className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Stores
                 </Link>
                 <Link
                   href="/contact"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                  className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Contact
                 </Link>
@@ -31,9 +34,9 @@ export default function Home() {
           </div>
         </div>
       </nav>
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <StoreLocator />
-      </main>
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {children}
+      </div>
     </div>
   );
-}
+} 
