@@ -1,9 +1,17 @@
-'use client';
-
+import { promises as fs } from 'fs';
+import path from 'path';
 import StoreLocator from '../components/StoreLocator';
 import Link from 'next/link';
 
-export default function Home() {
+async function getData() {
+  const jsonDirectory = path.join(process.cwd(), 'public/data');
+  const fileContents = await fs.readFile(jsonDirectory + '/data.json', 'utf8');
+  return JSON.parse(fileContents);
+}
+
+export default async function Home() {
+  const data = await getData();
+
   return (
     <div className="min-h-screen">
       <nav className="bg-white shadow-sm">
@@ -32,7 +40,7 @@ export default function Home() {
         </div>
       </nav>
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <StoreLocator />
+        <StoreLocator initialData={data} />
       </main>
     </div>
   );

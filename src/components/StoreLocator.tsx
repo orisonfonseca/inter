@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback } from 'react';
+'use client';
+
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
-import { storeData } from '../data/stores';
-import { Store } from '../types/store';
+import { Store, StoreData } from '../types/store';
 
 const containerStyle = {
   width: '100%',
@@ -9,50 +10,147 @@ const containerStyle = {
 };
 
 const defaultCenter = {
-  lat: 28.6329,
-  lng: 77.2195
+  lat: 28.6139,
+  lng: 77.2090
 };
 
 const libraries = ['places'];
 
-export default function StoreLocator() {
+interface StoreLocatorProps {
+  initialData: StoreData;
+}
+
+function formatOperationHours(hours: Store['dealerOperationHours']): string {
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const uniqueTimings = new Set();
+  
+  days.forEach(day => {
+    const openTime = hours[`${day}OpenTime` as keyof typeof hours];
+    const closeTime = hours[`${day}CloseTime` as keyof typeof hours];
+    if (openTime && closeTime) {
+      uniqueTimings.add(`${openTime}-${closeTime}`);
+    }
+  });
+
+  if (uniqueTimings.size === 1) {
+    const timing = Array.from(uniqueTimings)[0];
+    return `Mon-Sat: ${timing}`;
+  }
+
+  return days
+    .map(day => {
+      const openTime = hours[`${day}OpenTime` as keyof typeof hours];
+      const closeTime = hours[`${day}CloseTime` as keyof typeof hours];
+      if (openTime && closeTime) {
+        return `${day.charAt(0).toUpperCase() + day.slice(1)}: ${openTime}-${closeTime}`;
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+export default function StoreLocator({ initialData }: StoreLocatorProps) {
   const [selectedState, setSelectedState] = useState<string>('Delhi');
   const [selectedCity, setSelectedCity] = useState<string>('New Delhi');
   const [map, setMap] = useState<google.maps.Map | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
     libraries: libraries as any,
   });
 
-  const states = useMemo(() => Object.keys(storeData), []);
-  const cities = useMemo(() => 
-    selectedState ? Object.keys(storeData[selectedState]) : [],
-    [selectedState]
-  );
-  const stores = useMemo(() => 
-    selectedState && selectedCity ? storeData[selectedState][selectedCity] : [],
-    [selectedState, selectedCity]
-  );
+  const cityStateMap = initialData.cityStateMap;
 
-  const center = useMemo(() => 
-    stores.length > 0 
-      ? { lat: stores[0].lat, lng: stores[0].lng }
-      : defaultCenter,
-    [stores]
-  );
+  const states = useMemo(() => {
+    return Object.keys(cityStateMap).sort();
+  }, [cityStateMap]);
+
+  const cities = useMemo(() => {
+    if (!selectedState) return [];
+    return Object.keys(cityStateMap[selectedState] || {}).sort();
+  }, [cityStateMap, selectedState]);
+
+  const filteredStores = useMemo(() => {
+    if (!selectedState) {
+      return Object.values(cityStateMap)
+        .flatMap(cities => Object.values(cities))
+        .flat();
+    }
+    if (!selectedCity) {
+      return Object.values(cityStateMap[selectedState])
+        .flat();
+    }
+    return cityStateMap[selectedState][selectedCity];
+  }, [cityStateMap, selectedState, selectedCity]);
 
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newState = e.target.value;
     setSelectedState(newState);
-    setSelectedCity(Object.keys(storeData[newState])[0]);
+    if (newState !== selectedState) {
+      setSelectedCity('');
+    }
   };
 
+  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCity(e.target.value);
+  };
+
+  const fitBounds = useCallback(() => {
+    if (mapRef.current && filteredStores.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      
+      filteredStores.forEach((store) => {
+        const lat = parseFloat(store.latitude);
+        const lng = parseFloat(store.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          bounds.extend({ lat, lng });
+        }
+      });
+
+      mapRef.current.fitBounds(bounds);
+
+      const currentZoom = mapRef.current.getZoom();
+      if (currentZoom !== undefined) {
+        // If there's only one store, zoom in closer
+        if (filteredStores.length === 1) {
+          mapRef.current.setZoom(15);
+        }
+        // If we're showing all stores, don't zoom in too close
+        else if (!selectedState && !selectedCity && currentZoom > 5) {
+          mapRef.current.setZoom(5);
+        }
+        // If we're showing state stores, adjust zoom accordingly
+        else if (selectedState && !selectedCity && currentZoom > 8) {
+          mapRef.current.setZoom(8);
+        }
+      }
+    }
+  }, [filteredStores, selectedState, selectedCity]);
+
+  // Effect to handle initial state and city selection
+  useEffect(() => {
+    if (selectedState && !selectedCity && cities.length > 0) {
+      setSelectedCity(cities[0]);
+    }
+  }, [selectedState, selectedCity, cities]);
+
+  // Effect to update map bounds when filters change
+  useEffect(() => {
+    if (mapRef.current) {
+      fitBounds();
+    }
+  }, [selectedState, selectedCity, fitBounds]);
+
   const onLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
     setMap(map);
-  }, []);
+    fitBounds();
+  }, [fitBounds]);
 
   const onUnmount = useCallback(() => {
+    mapRef.current = null;
     setMap(null);
   }, []);
 
@@ -90,8 +188,8 @@ export default function StoreLocator() {
     return (
       <GoogleMap
         mapContainerStyle={containerStyle}
-        center={center}
-        zoom={13}
+        center={defaultCenter}
+        zoom={5}
         onLoad={onLoad}
         onUnmount={onUnmount}
         options={{
@@ -101,11 +199,23 @@ export default function StoreLocator() {
           mapTypeControl: true,
         }}
       >
-        {stores.map((store: Store) => (
+        {filteredStores.map((store) => (
           <Marker
-            key={store.id}
-            position={{ lat: store.lat, lng: store.lng }}
+            key={store.dealerId}
+            position={{ 
+              lat: parseFloat(store.latitude), 
+              lng: parseFloat(store.longitude) 
+            }}
             title={store.name}
+            onClick={() => {
+              if (mapRef.current) {
+                mapRef.current.setZoom(16);
+                mapRef.current.panTo({
+                  lat: parseFloat(store.latitude),
+                  lng: parseFloat(store.longitude)
+                });
+              }
+            }}
           />
         ))}
       </GoogleMap>
@@ -126,6 +236,7 @@ export default function StoreLocator() {
               onChange={handleStateChange}
               className="w-full p-2 border rounded-md"
             >
+              <option value="">All States</option>
               {states.map((state) => (
                 <option key={state} value={state}>
                   {state}
@@ -139,9 +250,11 @@ export default function StoreLocator() {
             </label>
             <select
               value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
+              onChange={handleCityChange}
               className="w-full p-2 border rounded-md"
+              disabled={!selectedState}
             >
+              <option value="">All Cities</option>
               {cities.map((city) => (
                 <option key={city} value={city}>
                   {city}
@@ -152,19 +265,68 @@ export default function StoreLocator() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="store-list">
-          <h2 className="text-xl font-semibold mb-4">Stores in {selectedCity}</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            {selectedCity
+              ? `Stores in ${selectedCity}, ${selectedState}`
+              : selectedState
+              ? `Stores in ${selectedState}`
+              : 'All Stores'}
+          </h2>
           <div className="space-y-4">
-            {stores.map((store: Store) => (
-              <div
-                key={store.id}
-                className="p-4 border rounded-md hover:bg-gray-50"
-              >
-                <h3 className="font-medium">{store.name}</h3>
-                <p className="text-gray-600">{store.address}</p>
+            {filteredStores.length > 0 ? (
+              filteredStores.map((store) => (
+                <div
+                  key={store.dealerId}
+                  className="p-4 border rounded-md hover:bg-gray-50"
+                >
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-medium">{store.name}</h3>
+                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                      {store.type}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 mt-1">{store.address}</p>
+                  {store.area && (
+                    <p className="text-gray-500 text-sm">{store.area}</p>
+                  )}
+                  <p className="text-gray-500 text-sm">
+                    {store.city}, {store.state} - {store.pincode}
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-gray-500 text-sm">
+                      <span className="font-medium">Hours:</span>{' '}
+                      {formatOperationHours(store.dealerOperationHours)}
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      <span className="font-medium">Phone:</span> {store.phoneNumber}
+                      {store.additionalPhones && `, ${store.additionalPhones}`}
+                    </p>
+                    {store.averageRating > 0 && (
+                      <p className="text-gray-500 text-sm">
+                        <span className="font-medium">Rating:</span>{' '}
+                        {store.averageRating.toFixed(1)} ★
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <a
+                      href={store.storePageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                    >
+                      View Store Details →
+                    </a>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-gray-500 text-center py-4">
+                No stores found
               </div>
-            ))}
+            )}
           </div>
         </div>
 
