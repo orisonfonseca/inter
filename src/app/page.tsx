@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import StoreLocator from '../components/StoreLocator';
 import Link from 'next/link';
+import ContactForm from '../components/ContactForm';
 
 async function getData() {
   const jsonDirectory = path.join(process.cwd(), 'public/data');
@@ -9,9 +9,7 @@ async function getData() {
   return JSON.parse(fileContents);
 }
 
-export default async function Home() {
-  const data = await getData();
-
+export default function Home() {
   return (
     <div className="min-h-screen">
       <nav className="bg-white shadow-sm">
@@ -19,28 +17,15 @@ export default async function Home() {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-indigo-600">Store Locator</h1>
+                <h1 className="text-xl font-bold text-indigo-600">Project</h1>
               </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <Link 
-                  href="/"
-                  className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Stores
-                </Link>
-                <Link
-                  href="/contact"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Contact
-                </Link>
-              </div>
+              {/* Navigation removed since only Contact is needed */}
             </div>
           </div>
         </div>
       </nav>
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <StoreLocator initialData={data} />
+        <ContactForm />
       </main>
     </div>
   );
