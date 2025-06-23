@@ -170,6 +170,7 @@ export default function ContactForm() {
         })()
         ) : (
           <>
+            <h3 className="text-2xl font-bold mb-6 text-indigo-700 text-center">Review Your Details</h3>
             <div className="space-y-4">
               {formFields.map((field, index) => (
                 <div key={field.name} className="flex items-center justify-between bg-white/80 p-3 rounded-lg shadow-sm">
@@ -208,19 +209,13 @@ export default function ContactForm() {
       {showPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
           <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 border border-pink-200">
-            <h3 className="text-2xl font-bold mb-4 text-indigo-700 text-center">Form Submission Details</h3>
-            <div className="space-y-2 text-gray-700">
-              <p><strong>Full Name:</strong> {formik.values.fullName}</p>
-              <p><strong>Phone:</strong> {formik.values.phone}</p>
-              <p><strong>Email:</strong> {formik.values.email}</p>
-              <p><strong>City:</strong> {formik.values.city}</p>
-              <p><strong>Favorite Sport:</strong> {formik.values.favoriteSport}</p>
-              <p><strong>Favorite Team:</strong> {formik.values.favoriteTeam}</p>
-              <p><strong>Favorite Sports Icon:</strong> {formik.values.favoriteSportsIcon}</p>
+            <h3 className="text-2xl font-bold mb-4 text-green-700 text-center">Success!</h3>
+            <div className="space-y-2 text-green-700 text-center font-semibold text-lg">
+              Form submitted successfully!
             </div>
             <button
               onClick={() => setShowPopup(false)}
-              className="mt-6 w-full bg-gradient-to-r from-pink-400 to-indigo-500 text-white py-2 px-4 rounded-lg font-semibold shadow hover:scale-105 transition-all duration-200"
+              className="mt-6 w-full bg-gradient-to-r from-green-400 to-indigo-500 text-white py-2 px-4 rounded-lg font-semibold shadow hover:scale-105 transition-all duration-200"
             >
               Close
             </button>
